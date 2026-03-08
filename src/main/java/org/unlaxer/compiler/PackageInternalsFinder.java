@@ -9,27 +9,27 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.function.Function;
 import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 import javax.tools.JavaFileObject;
 
 /*
  * modified and repackage below sources for java9 and j2ee container
  * https://atamur.blogspot.com/2009/10/using-built-in-javacompiler-with-custom.html
- * 
+ *
  * @author atamur
  * @author opa
  * @since 15-Oct-2009
  */
 class PackageInternalsFinder {
 	private ClassLoader classLoader;
-	private final Function<URL, String> jarURLStringFromURL;
+	private final JarURIResolver jarURIResolver;
 	private static final String CLASS_FILE_EXTENSION = ".class";
 
-	public PackageInternalsFinder(ClassLoader classLoader, Function<URL, String> jarURLStringFromURL) {
+	public PackageInternalsFinder(ClassLoader classLoader, JarURIResolver jarURIResolver) {
 		this.classLoader = classLoader;
-		this.jarURLStringFromURL = jarURLStringFromURL;
+		this.jarURIResolver = jarURIResolver;
 	}
 
 	public List<JavaFileObject> find(String packageName) throws IOException {
@@ -59,28 +59,27 @@ class PackageInternalsFinder {
 		List<JavaFileObject> result = new ArrayList<JavaFileObject>();
 		try {
 
-			String jarUri = jarURLStringFromURL.apply(packageFolderURL);
+			String jarUri = jarURIResolver.resolve(packageFolderURL.toExternalForm());
 
 			packageFolderURL = new URL(jarUri + "!/");
 
 			JarURLConnection jarConn = (JarURLConnection) packageFolderURL.openConnection();
 			String rootEntryName = jarConn.getEntryName();
 			rootEntryName = rootEntryName == null ? "" : rootEntryName;
-//			int rootEnd = rootEntryName.length() + 1;
 
-			Enumeration<JarEntry> entryEnum = jarConn.getJarFile().entries();
-			while (entryEnum.hasMoreElements()) {
-				JarEntry jarEntry = entryEnum.nextElement();
-				String name = jarEntry.getName();
+			try (JarFile jarFile = jarConn.getJarFile()) {
+				Enumeration<JarEntry> entryEnum = jarFile.entries();
+				while (entryEnum.hasMoreElements()) {
+					JarEntry jarEntry = entryEnum.nextElement();
+					String name = jarEntry.getName();
 
-				if (/* name.startsWith(rootEntryName) && */ /*
-															 * name.indexOf('/', rootEnd) == -1 &&
-															 */ name.endsWith(CLASS_FILE_EXTENSION)) {
-					URI uri = URI.create(jarUri + "!/" + name);
-					String binaryName = name.replaceAll("/", ".");
-					binaryName = binaryName.replaceAll(CLASS_FILE_EXTENSION + "$", "");
+					if (name.endsWith(CLASS_FILE_EXTENSION)) {
+						URI uri = URI.create(jarUri + "!/" + name);
+						String binaryName = name.replaceAll("/", ".");
+						binaryName = binaryName.replaceAll(CLASS_FILE_EXTENSION + "$", "");
 
-					result.add(new CustomJavaFileObject(binaryName, uri));
+						result.add(new CustomJavaFileObject(binaryName, uri));
+					}
 				}
 			}
 		} catch (Exception e) {
@@ -93,6 +92,9 @@ class PackageInternalsFinder {
 		List<JavaFileObject> result = new ArrayList<JavaFileObject>();
 
 		File[] childFiles = directory.listFiles();
+		if (childFiles == null) {
+			return result;
+		}
 		for (File childFile : childFiles) {
 			if (childFile.isFile()) {
 				// We only want the .class files.

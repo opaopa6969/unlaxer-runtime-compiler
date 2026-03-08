@@ -12,6 +12,7 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
+import javax.tools.JavaFileManager.Location;
 
 /*
  * modified and repackage below sources for java9 and j2ee container
@@ -27,12 +28,22 @@ public class CustomClassloaderJavaFileManager implements JavaFileManager {
 	private final PackageInternalsFinder finder;
 	private final JavaFileManagerContext javaFileManagerContext;
 
+	private static final Set<String> STANDARD_PACKAGES = Set.of(
+		"java.",
+		"javax.",
+		"com.sun.",
+		"sun.",
+		"jdk.",
+		"org.w3c.",
+		"org.xml."
+	);
+
 	public CustomClassloaderJavaFileManager(ClassLoader classLoader, StandardJavaFileManager standardFileManager,
 			JavaFileManagerContext javaFileManagerContext) {
 		this.classLoader = classLoader;
 		this.standardFileManager = standardFileManager;
 		this.javaFileManagerContext = javaFileManagerContext;
-		finder = new PackageInternalsFinder(classLoader,javaFileManagerContext.jarURLStringFromURL);
+		finder = new PackageInternalsFinder(classLoader, javaFileManagerContext.jarURIResolver);
 	}
 	
 	@Override
@@ -95,6 +106,10 @@ public class CustomClassloaderJavaFileManager implements JavaFileManager {
 	public void close() throws IOException {
 	}
 
+	private boolean isStandardPackage(String packageName) {
+		return STANDARD_PACKAGES.stream().anyMatch(packageName::startsWith);
+	}
+
 	@Override
 	public Iterable<JavaFileObject> list(Location location, String packageName, Set<JavaFileObject.Kind> kinds,
 			boolean recurse) throws IOException {
@@ -108,7 +123,7 @@ public class CustomClassloaderJavaFileManager implements JavaFileManager {
 			return list;
 
 		} else if (location == StandardLocation.CLASS_PATH && kinds.contains(JavaFileObject.Kind.CLASS)) {
-			if (packageName.startsWith("java.")) {// a hack to let standard manager handle locations like "java.lang" or "java.util". Prob would make
+			if (isStandardPackage(packageName)) {
 			  Iterable<JavaFileObject> list = standardFileManager.list(location, packageName, kinds, recurse);
 			  return list;
 			} else {

@@ -10,37 +10,56 @@ import javax.tools.JavaFileManager.Location;
 public class JavaFileManagerContext {
   public final Predicate<Location> matchForStandardFileManager;
   public final Predicate<Location> matchForOtherFileManager;
-  public final Function<URL, String> jarURLStringFromURL;
+  public final JarURIResolver jarURIResolver;
 
   public JavaFileManagerContext(
       Predicate<Location> matchForStandardFileManager,
       Predicate<Location> matchForOtherFileManager,
-      Function<URL, String> jarURLStringFromURL) {
+      JarURIResolver jarURIResolver) {
     super();
     this.matchForStandardFileManager = matchForStandardFileManager;
     this.matchForOtherFileManager = matchForOtherFileManager;
-    this.jarURLStringFromURL = jarURLStringFromURL;
+    this.jarURIResolver = jarURIResolver;
   }
 
   public JavaFileManagerContext(Predicate<Location> matchForStandardFileManager,Predicate<Location> matchForOtherFileManager) {
     super();
     this.matchForStandardFileManager = matchForStandardFileManager;
     this.matchForOtherFileManager = matchForOtherFileManager;
-    this.jarURLStringFromURL = defaultJarURLStringFromURL;
+    this.jarURIResolver = DefaultJarURIResolver.INSTANCE;
   }
 
+  public JavaFileManagerContext(JarURIResolver jarURIResolver) {
+    super();
+    this.matchForStandardFileManager = defaultMatchForStandardFileManager;
+    this.matchForOtherFileManager = defaultMatchForOtherFileManager;
+    this.jarURIResolver = jarURIResolver;
+  }
+
+  /**
+   * @deprecated Use {@link JavaFileManagerContext(JarURIResolver)} instead.
+   * This constructor maintains backwards compatibility.
+   */
+  @Deprecated(forRemoval = false)
   public JavaFileManagerContext(Function<URL, String> jarURLStringFromURL) {
     super();
     this.matchForStandardFileManager = defaultMatchForStandardFileManager;
     this.matchForOtherFileManager = defaultMatchForOtherFileManager;
-    this.jarURLStringFromURL = jarURLStringFromURL;
+    // Convert Function<URL, String> to JarURIResolver
+    this.jarURIResolver = externalForm -> {
+      try {
+        return jarURLStringFromURL.apply(new URL(externalForm));
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    };
   }
 
   public JavaFileManagerContext() {
     super();
     this.matchForStandardFileManager = defaultMatchForStandardFileManager;
     this.matchForOtherFileManager = defaultMatchForOtherFileManager;
-    this.jarURLStringFromURL = defaultJarURLStringFromURL;
+    this.jarURIResolver = DefaultJarURIResolver.INSTANCE;
   }
 
   private static final Predicate<Location> defaultMatchForOtherFileManager = //
@@ -53,21 +72,6 @@ public class JavaFileManagerContext {
   private static final Predicate<Location> defaultMatchForStandardFileManager = //
       location -> //
       location == StandardLocation.PLATFORM_CLASS_PATH || //
-//			          location.getName().startsWith(StandardLocation.SYSTEM_MODULES.getName());//
-          location.getName().equals("SYSTEM_MODULES[java.base]");
-
-  private static final Function<URL, String> defaultJarURLStringFromURL = //
-      packageFolderURL -> {//
-        String externalForm = packageFolderURL.toExternalForm();//
-        String jarUri = externalForm.substring(0, externalForm.lastIndexOf('!'));//
-        // String jarUri = packageFolderURL.toExternalForm().split("!")[0];//
-
-        // open liberty provides URL that has scheme 'wsjar'.
-        // if openConnection the 'wsjar' URL, we get
-        // WSJarURLStreamHandler$WSJarURLConnectionImpl
-        jarUri = jarUri.startsWith("wsjar") ? "jar" + jarUri.substring(5) : jarUri;//
-
-        return jarUri;//
-      };//
+      location.getName().startsWith("SYSTEM_MODULES[");
 
 }
