@@ -1,5 +1,7 @@
 # unlaxer-runtime-compiler
 
+**Language:** [日本語](./README_ja.md) | English
+
 In-memory Java runtime compiler built on `javax.tools.JavaCompiler` with:
 
 - in-memory source compilation
@@ -323,9 +325,7 @@ executor.submit(() -> shared.compile(...)); // ✗ Not thread-safe
 
 ## Related Projects
 
-- 📖 **[README (Japanese)](./README_ja.md)** - 日本語版ドキュメント
 - 📌 **TinyExpression**: Expression evaluation engine using this compiler
-- 🔧 **[v2-memo/](./v2-memo/)**: Detailed design review and improvement roadmap
 
 ---
 
