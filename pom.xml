@@ -5,7 +5,7 @@
 
 	<groupId>org.unlaxer</groupId>
 	<artifactId>unlaxer-runtime-compiler</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.0</version>
 	<name>unlaxer-runtime-compiler</name>
 	<description>In-memory Java runtime compiler with classloader isolation and
 		bytecode extraction</description>
